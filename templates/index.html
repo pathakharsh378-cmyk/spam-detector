@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Spam Email Detector</title>
+  <style>
+    /* ── Reset & Base ── */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 48px;
+      width: 100%;
+      max-width: 680px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+    }
+
+    /* ── Header ── */
+    .header { text-align: center; margin-bottom: 40px; }
+
+    .shield {
+      font-size: 56px;
+      margin-bottom: 12px;
+      display: block;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-8px); }
+    }
+
+    h1 {
+      color: #ffffff;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      color: rgba(255,255,255,0.5);
+      font-size: 14px;
+      margin-top: 6px;
+    }
+
+    /* ── Textarea ── */
+    .input-group { margin-bottom: 20px; }
+
+    label {
+      display: block;
+      color: rgba(255,255,255,0.7);
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 180px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 14px;
+      color: #ffffff;
+      font-size: 15px;
+      padding: 18px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.3s;
+      font-family: inherit;
+      line-height: 1.6;
+    }
+    textarea::placeholder { color: rgba(255,255,255,0.25); }
+    textarea:focus { border-color: rgba(99, 102, 241, 0.8); }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    button {
+      flex: 1;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+    .btn-primary:hover  { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(99,102,241,0.5); }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.6);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.12); color: white; }
+
+    /* ── Result Box ── */
+    .result {
+      border-radius: 16px;
+      padding: 28px;
+      text-align: center;
+      display: none;
+      animation: slideUp 0.4s ease;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result.spam {
+      background: linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.1));
+      border: 1px solid rgba(239,68,68,0.4);
+    }
+    .result.ham {
+      background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(22,163,74,0.1));
+      border: 1px solid rgba(34,197,94,0.4);
+    }
+
+    .result-icon  { font-size: 52px; margin-bottom: 10px; }
+    .result-label {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+    .spam .result-label { color: #f87171; }
+    .ham  .result-label { color: #4ade80; }
+
+    .result-prob  { color: rgba(255,255,255,0.6); font-size: 14px; margin-bottom: 16px; }
+
+    /* Progress bar */
+    .bar-wrap {
+      background: rgba(255,255,255,0.1);
+      border-radius: 99px;
+      height: 8px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.8s ease;
+    }
+    .spam .bar-fill { background: linear-gradient(90deg, #f87171, #ef4444); }
+    .ham  .bar-fill { background: linear-gradient(90deg, #4ade80, #22c55e); }
+
+    /* ── Loading ── */
+    .loading {
+      text-align: center;
+      color: rgba(255,255,255,0.5);
+      padding: 24px;
+      display: none;
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Examples ── */
+    .examples { margin-top: 28px; }
+    .examples-title {
+      color: rgba(255,255,255,0.4);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    .example-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 99px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .chip:hover { background: rgba(99,102,241,0.2); color: white; border-color: rgba(99,102,241,0.5); }
+    .chip.spam-chip { border-color: rgba(239,68,68,0.2); }
+    .chip.ham-chip  { border-color: rgba(34,197,94,0.2); }
+
+    /* ── Error ── */
+    .error-msg {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 10px;
+      color: #f87171;
+      padding: 12px 16px;
+      font-size: 13px;
+      display: none;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+
+  <!-- Header -->
+  <div class="header">
+    <span class="shield">🛡️</span>
+    <h1>Spam Email Detector</h1>
+    <p class="subtitle">Powered by Deep Learning (Bidirectional LSTM)</p>
+  </div>
+
+  <!-- Input -->
+  <div class="input-group">
+    <label>📧 Email Content</label>
+    <textarea id="emailInput"
+      placeholder="Paste your email text here...&#10;&#10;e.g. Congratulations! You won a free iPhone! Click here now!!"></textarea>
+  </div>
+
+  <!-- Error -->
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Buttons -->
+  <div class="btn-row">
+    <button class="btn-primary" onclick="analyzeEmail()">🔍 Analyze Email</button>
+    <button class="btn-secondary" onclick="clearAll()">✕ Clear</button>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>Analyzing email...</p>
+  </div>
+
+  <!-- Result -->
+  <div class="result" id="result">
+    <div class="result-icon" id="resultIcon"></div>
+    <div class="result-label" id="resultLabel"></div>
+    <div class="result-prob"  id="resultProb"></div>
+    <div class="bar-wrap">
+      <div class="bar-fill" id="barFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Examples -->
+  <div class="examples">
+    <div class="examples-title">Try an example</div>
+    <div class="example-chips">
+      <span class="chip spam-chip" onclick="setExample(this)">🚨 Win $1000000 now!</span>
+      <span class="chip spam-chip" onclick="setExample(this)">🚨 Free iPhone click here</span>
+      <span class="chip spam-chip" onclick="setExample(this)">🚨 Urgent account suspended</span>
+      <span class="chip ham-chip"  onclick="setExample(this)">✅ Meeting at 3pm tomorrow</span>
+      <span class="chip ham-chip"  onclick="setExample(this)">✅ Please review the report</span>
+      <span class="chip ham-chip"  onclick="setExample(this)">✅ Lunch on Friday?</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const exampleMap = {
+    '🚨 Win $1000000 now!'         : 'Congratulations!! You have WON $1,000,000 dollars! Click here NOW to claim your prize before it expires!!!',
+    '🚨 Free iPhone click here'    : 'FREE offer! Get a brand new iPhone 15 for FREE! Limited time only! Act now! Click the link to claim!',
+    '🚨 Urgent account suspended'  : 'URGENT: Your bank account has been suspended. Verify your details immediately at http://secure-login.fake.com or lose access!',
+    '✅ Meeting at 3pm tomorrow'   : 'Hi, just checking if we are still on for the 3pm meeting tomorrow? Let me know if you need to reschedule.',
+    '✅ Please review the report'  : 'Hi team, please find the Q3 report attached. Let me know if you have any questions or feedback.',
+    '✅ Lunch on Friday?'          : 'Hey! Are you free for lunch on Friday? We are thinking of trying that new place downtown around 1pm.',
+  };
+
+  function setExample(el) {
+    const text = exampleMap[el.innerText.trim()];
+    if (text) {
+      document.getElementById('emailInput').value = text;
+      hideResult();
+    }
+  }
+
+  function hideResult() {
+    document.getElementById('result').style.display   = 'none';
+    document.getElementById('errorMsg').style.display = 'none';
+  }
+
+  function clearAll() {
+    document.getElementById('emailInput').value = '';
+    hideResult();
+  }
+
+  async function analyzeEmail() {
+    const email = document.getElementById('emailInput').value.trim();
+    const errorMsg = document.getElementById('errorMsg');
+    const loading  = document.getElementById('loading');
+    const result   = document.getElementById('result');
+
+    errorMsg.style.display = 'none';
+    result.style.display   = 'none';
+
+    if (!email) {
+      errorMsg.textContent   = '⚠️ Please enter some email text first.';
+      errorMsg.style.display = 'block';
+      return;
+    }
+
+    loading.style.display = 'block';
+
+    try {
+      const res  = await fetch('/predict', {
+        method  : 'POST',
+        headers : { 'Content-Type': 'application/json' },
+        body    : JSON.stringify({ email })
+      });
+      const data = await res.json();
+      loading.style.display = 'none';
+
+      if (data.error) {
+        errorMsg.textContent   = '❌ ' + data.error;
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      // Show result
+      const isSpam = data.is_spam;
+      result.className = 'result ' + (isSpam ? 'spam' : 'ham');
+
+      document.getElementById('resultIcon').textContent  = isSpam ? '🚨' : '✅';
+      document.getElementById('resultLabel').textContent = data.label;
+      document.getElementById('resultProb').textContent  =
+        `Confidence: ${data.probability}% ${isSpam ? '— This looks like spam!' : '— This looks safe!'}`;
+
+      result.style.display = 'block';
+
+      // Animate bar
+      setTimeout(() => {
+        document.getElementById('barFill').style.width = data.probability + '%';
+      }, 100);
+
+    } catch (err) {
+      loading.style.display  = 'none';
+      errorMsg.textContent   = '❌ Server error. Make sure Flask is running.';
+      errorMsg.style.display = 'block';
+    }
+  }
+
+  // Allow Ctrl+Enter to submit
+  document.getElementById('emailInput').addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'Enter') analyzeEmail();
+  });
+</script>
+</body>
+</html>
